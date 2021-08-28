@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/pprof"
@@ -8,17 +9,13 @@ import (
 
 	"github.com/Azure/azure-container-networking/log"
 
-	"github.com/Azure/azure-container-networking/npm/cache"
 	"github.com/Azure/azure-container-networking/npm/http/api"
 	"github.com/Azure/azure-container-networking/npm/metrics"
 
-	"github.com/Azure/azure-container-networking/npm"
 	"github.com/gorilla/mux"
 )
 
-var (
-	DefaultHTTPListeningAddress = fmt.Sprintf("%s:%s", api.DefaultListeningIP, api.DefaultHttpPort)
-)
+var DefaultHTTPListeningAddress = fmt.Sprintf("%s:%s", api.DefaultListeningIP, api.DefaultHttpPort)
 
 type NPMRestServer struct {
 	listeningAddress string
@@ -26,10 +23,10 @@ type NPMRestServer struct {
 	router           *mux.Router
 }
 
-func (n *NPMRestServer) NPMRestServerListenAndServe(npmEncoder npm.NetworkPolicyManagerEncoder) {
+func (n *NPMRestServer) NPMRestServerListenAndServe(npmEncoder json.Marshaler) {
 	n.router = mux.NewRouter()
 
-	//prometheus handlers
+	// prometheus handlers
 	n.router.Handle(api.NodeMetricsPath, metrics.GetHandler(true))
 	n.router.Handle(api.ClusterMetricsPath, metrics.GetHandler(false))
 
@@ -63,12 +60,16 @@ func NewNpmRestServer(listeningAddress string) *NPMRestServer {
 	}
 }
 
-func (n *NPMRestServer) npmCacheHandler(npmEncoder npm.NetworkPolicyManagerEncoder) http.Handler {
+func (n *NPMRestServer) npmCacheHandler(npmEncoder json.Marshaler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := cache.Encode(w, npmEncoder)
+		b, err := npmEncoder.MarshalJSON()
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
+		}
+		_, err = w.Write(b)
+		if err != nil {
+			log.Errorf("failed to write resp: %w", err)
 		}
 	})
 }
