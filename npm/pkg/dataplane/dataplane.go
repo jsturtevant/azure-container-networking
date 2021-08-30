@@ -8,9 +8,9 @@ import (
 )
 
 type DataPlane struct {
-	policies.PolicyManager
-	ipsets.IPSetManager
 	DataPlaneInterface
+	policyMgr policies.PolicyManager
+	ipsetMgr  ipsets.IPSetManager
 	OsType    OsType
 	networkID string
 	// key is PodKey
@@ -19,9 +19,9 @@ type DataPlane struct {
 
 func NewDataPlane() *DataPlane {
 	return &DataPlane{
-		OsType:        detectOsType(),
-		PolicyManager: policies.NewPolicyManager(),
-		IPSetManager:  ipsets.NewIPSetManager(string(detectOsType())),
+		OsType:    detectOsType(),
+		policyMgr: policies.NewPolicyManager(),
+		ipsetMgr:  ipsets.NewIPSetManager(string(detectOsType())),
 	}
 }
 
@@ -55,7 +55,7 @@ type DataPlaneInterface interface {
 	DeleteSet(name string) error
 	DeleteList(name string) error
 
-	AddToSet(setNames []string, ip, podKey string) error
+	AddToSet(setNames []*ipsets.IPSet, ip, podKey string) error
 	RemoveFromSet(setNames []string, ip, podkey string) error
 	AddToList(listName string, setNames []string) error
 	RemoveFromList(listName string, setNames []string) error
@@ -83,4 +83,52 @@ func detectOsType() OsType {
 	default:
 		panic("Unsupported OS type: " + os)
 	}
+}
+
+func (dp *DataPlane) CreateIPSet(Set *ipsets.IPSet) error {
+	return dp.ipsetMgr.CreateIPSet(Set)
+}
+
+func (dp *DataPlane) DeleteSet(name string) error {
+	return dp.ipsetMgr.DeleteSet(name)
+}
+
+func (dp *DataPlane) DeleteList(name string) error {
+	return dp.ipsetMgr.DeleteList(name)
+}
+
+func (dp *DataPlane) AddToSet(setNames []*ipsets.IPSet, ip, podKey string) error {
+	return dp.ipsetMgr.AddToSet(setNames, ip, podKey)
+}
+
+func (dp *DataPlane) RemoveFromSet(setNames []string, ip, podKey string) error {
+	return dp.ipsetMgr.RemoveFromSet(setNames, ip, podKey)
+}
+
+func (dp *DataPlane) AddToList(listName string, setNames []string) error {
+	return dp.ipsetMgr.AddToList(listName, setNames)
+}
+
+func (dp *DataPlane) RemoveFromList(listName string, setNames []string) error {
+	return dp.ipsetMgr.RemoveFromList(listName, setNames)
+}
+
+func (dp *DataPlane) UpdatePod(pod interface{}) error {
+	return nil
+}
+
+func (dp *DataPlane) ApplyDataplane() error {
+	return nil
+}
+
+func (dp *DataPlane) AddPolicies(policies *policies.NPMNetworkPolicy) error {
+	return dp.policyMgr.AddPolicies(policies)
+}
+
+func (dp *DataPlane) RemovePolicies(policyName string) error {
+	return dp.policyMgr.RemovePolicies(policyName)
+}
+
+func (dp *DataPlane) UpdatePolicies(policies *policies.NPMNetworkPolicy) error {
+	return dp.policyMgr.UpdatePolicies(policies)
 }

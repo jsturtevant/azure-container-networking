@@ -29,3 +29,30 @@ func (pMgr *PolicyManager) GetPolicy(name string) (*NPMNetworkPolicy, error) {
 
 	return nil, nil
 }
+
+func (pMgr *PolicyManager) AddPolicies(policy *NPMNetworkPolicy) error {
+	pMgr.policyMap.Lock()
+	defer pMgr.policyMap.Unlock()
+
+	pMgr.policyMap.cache[policy.Name] = policy
+
+	return nil
+}
+
+func (pMgr *PolicyManager) RemovePolicies(name string) error {
+	pMgr.policyMap.Lock()
+	defer pMgr.policyMap.Unlock()
+
+	delete(pMgr.policyMap.cache, name)
+
+	return nil
+}
+
+func (pMgr *PolicyManager) UpdatePolicies(policy *NPMNetworkPolicy) error {
+	pMgr.policyMap.Lock()
+	defer pMgr.policyMap.Unlock()
+
+	// check and update
+
+	return nil
+}

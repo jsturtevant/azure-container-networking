@@ -125,3 +125,15 @@ func getSetKind(set *IPSet) SetKind {
 		return "unknown"
 	}
 }
+
+func (set *IPSet) AddMemberIPSet(memberIPSet *IPSet) {
+	set.MemberIPSets[memberIPSet.Name] = memberIPSet
+}
+
+func (set *IPSet) IncIpsetReferCount() {
+	set.IpsetReferCount++
+}
+
+func (set *IPSet) DecIpsetReferCount() {
+	set.IpsetReferCount--
+}
