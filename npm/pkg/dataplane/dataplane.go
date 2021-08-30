@@ -33,8 +33,6 @@ const (
 )
 
 type DataPlaneInterface interface {
-	NewDataplane() (*DataPlane, error)
-
 	InitializeDataplane() error
 	ResetDataplane() error
 
@@ -83,6 +81,10 @@ func detectOsType() OsType {
 	default:
 		panic("Unsupported OS type: " + os)
 	}
+}
+
+func (dp *DataPlane) InitializeDataplane() error {
+	return dp.initializeDataplane()
 }
 
 func (dp *DataPlane) CreateIPSet(set *ipsets.IPSet) error {

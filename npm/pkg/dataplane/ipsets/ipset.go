@@ -75,19 +75,23 @@ const (
 )
 
 func NewIPSet(name string, setType SetType) *IPSet {
-	return &IPSet{
+	set := &IPSet{
 		Name:              name,
 		HashedName:        util.GetHashedName(name),
-		IPPodKey:          make(map[string]string),
 		Type:              setType,
-		MemberIPSets:      make(map[string]*IPSet),
 		SelectorReference: make(map[string]struct{}),
 		NetPolReference:   make(map[string]struct{}),
 		IpsetReferCount:   0,
 	}
+	if getSetKind(set) == HashSet {
+		set.IPPodKey = make(map[string]string)
+	} else {
+		set.MemberIPSets = make(map[string]*IPSet)
+	}
+	return set
 }
 
-func GetSetContents(set *IPSet) ([]string, error) {
+func (set *IPSet) GetSetContents() ([]string, error) {
 	contents := make([]string, 0)
 	setType := getSetKind(set)
 	switch setType {
