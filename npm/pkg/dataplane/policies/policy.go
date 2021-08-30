@@ -9,14 +9,14 @@ type NPMNetworkPolicy struct {
 	Name              string
 	PodSelectorIPSets []*ipsets.IPSet
 	OtherIPSets       []*ipsets.IPSet
-	ACLs              []*AclPolicy
+	ACLs              []*ACLPolicy
 	// Making this a podKey instead should be
 	// use NPMPod obj
 	Pods  []string
 	RawNP *networkingv1.NetworkPolicy
 }
 
-type AclPolicy struct { // Iptable rules
+type ACLPolicy struct { // Iptable rules
 	PolicyID  string
 	Comment   string
 	SrcList   []SetInfo
@@ -29,7 +29,7 @@ type AclPolicy struct { // Iptable rules
 }
 
 type SetInfo struct {
-	IpSet     *ipsets.IPSet
+	IPSet     *ipsets.IPSet
 	Included  bool
 	MatchType string // match type can be “src”, “src,dst” or “dst,dst” etc
 }

@@ -85,8 +85,8 @@ func detectOsType() OsType {
 	}
 }
 
-func (dp *DataPlane) CreateIPSet(Set *ipsets.IPSet) error {
-	return dp.ipsetMgr.CreateIPSet(Set)
+func (dp *DataPlane) CreateIPSet(set *ipsets.IPSet) error {
+	return dp.ipsetMgr.CreateIPSet(set)
 }
 
 func (dp *DataPlane) DeleteSet(name string) error {

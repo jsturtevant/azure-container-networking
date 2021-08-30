@@ -28,15 +28,15 @@ func NewIPSetManager(os string) IPSetManager {
 	}
 }
 
-func (iMgr *IPSetManager) updateDirtyCache(setName string) error {
+func (iMgr *IPSetManager) updateDirtyCache(setName string) {
 	set, exists := iMgr.setMap[setName] // check if the Set exists
 	if !exists {
-		return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("ipset %s does not exist", set.Name))
+		return
 	}
 
 	// If set is not referenced in netpol then ignore the update
 	if len(set.NetPolReference) == 0 && len(set.SelectorReference) == 0 {
-		return nil
+		return
 	}
 
 	iMgr.dirtyCaches[set.Name] = struct{}{}
@@ -47,7 +47,7 @@ func (iMgr *IPSetManager) updateDirtyCache(setName string) error {
 			iMgr.dirtyCaches[member.Name] = struct{}{}
 		}
 	}
-	return nil
+	return
 }
 
 func (iMgr *IPSetManager) clearDirtyCache() {
@@ -75,7 +75,6 @@ func (iMgr *IPSetManager) CreateIPSet(set *IPSet) error {
 }
 
 func (iMgr *IPSetManager) AddToSet(addToSets []*IPSet, ip, podKey string) error {
-
 	// check if the IP is IPV$ family
 	if net.ParseIP(ip).To4() == nil {
 		return errors.Errorf(errors.AppendIPSet, false, "IPV6 not supported")
@@ -96,13 +95,13 @@ func (iMgr *IPSetManager) AddToSet(addToSets []*IPSet, ip, podKey string) error 
 		if getSetKind(set) != HashSet {
 			return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("ipset %s is not a hash set", set.Name))
 		}
-		cachedPodKey, ok := set.IpPodKey[ip]
+		cachedPodKey, ok := set.IPPodKey[ip]
 		if ok {
 			if cachedPodKey != podKey {
 				log.Logf("AddToSet: PodOwner has changed for Ip: %s, setName:%s, Old podKey: %s, new podKey: %s. Replace context with new PodOwner.",
 					ip, set.Name, cachedPodKey, podKey)
 
-				set.IpPodKey[ip] = podKey
+				set.IPPodKey[ip] = podKey
 			}
 			return nil
 		}
@@ -112,7 +111,7 @@ func (iMgr *IPSetManager) AddToSet(addToSets []*IPSet, ip, podKey string) error 
 		// some more error handling here
 
 		// update the IP ownership with podkey
-		set.IpPodKey[ip] = podKey
+		set.IPPodKey[ip] = podKey
 		iMgr.updateDirtyCache(set.Name)
 
 		// Update metrics of the IpSet
@@ -137,7 +136,7 @@ func (iMgr *IPSetManager) RemoveFromSet(removeFromSets []string, ip, podKey stri
 		}
 
 		// in case the IP belongs to a new Pod, then ignore this Delete call as this might be stale
-		cachedPodKey := set.IpPodKey[ip]
+		cachedPodKey := set.IPPodKey[ip]
 		if cachedPodKey != podKey {
 			log.Logf("DeleteFromSet: PodOwner has changed for Ip: %s, setName:%s, Old podKey: %s, new podKey: %s. Ignore the delete as this is stale update",
 				ip, setName, cachedPodKey, podKey)
@@ -150,7 +149,7 @@ func (iMgr *IPSetManager) RemoveFromSet(removeFromSets []string, ip, podKey stri
 		// some more error handling here
 
 		// update the IP ownership with podkey
-		delete(set.IpPodKey, ip)
+		delete(set.IPPodKey, ip)
 		iMgr.updateDirtyCache(set.Name)
 
 		// Update metrics of the IpSet
@@ -162,7 +161,6 @@ func (iMgr *IPSetManager) RemoveFromSet(removeFromSets []string, ip, podKey stri
 }
 
 func (iMgr *IPSetManager) AddToList(listName string, setNames []string) error {
-
 	iMgr.Lock()
 	defer iMgr.Unlock()
 

@@ -7,7 +7,6 @@ import (
 )
 
 func TestNewDataPlane(t *testing.T) {
-
 	dp := NewDataPlane()
 
 	if dp == nil {

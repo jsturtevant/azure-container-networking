@@ -12,7 +12,7 @@ type IPSet struct {
 	Type       SetType
 	// IpPodKey is used for setMaps to store Ips and ports as keys
 	// and podKey as value
-	IpPodKey map[string]string
+	IPPodKey map[string]string
 	// This is used for listMaps to store child IP Sets
 	MemberIPSets map[string]*IPSet
 	// Using a map here to emulate set of netpol names
@@ -35,7 +35,7 @@ const (
 	CIDRBlocks               SetType = 8
 )
 
-var SetType_name = map[int32]string{
+var SetTypeName = map[int32]string{
 	0: "Unknown",
 	1: "NameSpace",
 	2: "KeyLabelOfNameSpace",
@@ -47,7 +47,7 @@ var SetType_name = map[int32]string{
 	8: "CIDRBlocks",
 }
 
-var SetType_value = map[string]int32{
+var SetTypeValue = map[string]int32{
 	"Unknown":                  0,
 	"NameSpace":                1,
 	"KeyLabelOfNameSpace":      2,
@@ -60,11 +60,11 @@ var SetType_value = map[string]int32{
 }
 
 func (x SetType) String() string {
-	return SetType_name[int32(x)]
+	return SetTypeName[int32(x)]
 }
 
 func GetSetType(x string) SetType {
-	return SetType(SetType_value[x])
+	return SetType(SetTypeValue[x])
 }
 
 type SetKind string
@@ -78,7 +78,7 @@ func NewIPSet(name string, setType SetType) *IPSet {
 	return &IPSet{
 		Name:              name,
 		HashedName:        util.GetHashedName(name),
-		IpPodKey:          make(map[string]string),
+		IPPodKey:          make(map[string]string),
 		Type:              setType,
 		MemberIPSets:      make(map[string]*IPSet),
 		SelectorReference: make(map[string]struct{}),
@@ -92,8 +92,8 @@ func GetSetContents(set *IPSet) ([]string, error) {
 	setType := getSetKind(set)
 	switch setType {
 	case HashSet:
-		for podIp := range set.IpPodKey {
-			contents = append(contents, podIp)
+		for podIP := range set.IPPodKey {
+			contents = append(contents, podIP)
 		}
 		return contents, nil
 	case ListSet:
@@ -170,7 +170,7 @@ func (set *IPSet) CanBeDeleted() bool {
 	if len(set.MemberIPSets) > 0 {
 		return false
 	}
-	if len(set.IpPodKey) > 0 {
+	if len(set.IPPodKey) > 0 {
 		return false
 	}
 	return true
