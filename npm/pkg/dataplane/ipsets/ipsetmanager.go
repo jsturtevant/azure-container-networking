@@ -10,60 +10,55 @@ import (
 	"github.com/Azure/azure-container-networking/npm/util/errors"
 )
 
-type IPSetMap struct {
-	cache map[string]*IPSet
+type IPSetManager struct {
+	setMap      map[string]*IPSet
+	dirtyCaches map[string]struct{}
 	sync.Mutex
 }
-type IPSetManager struct {
-	listMap     *IPSetMap
-	setMap      *IPSetMap
-	dirtyCaches *IPSetMap
-}
 
-func newIPSetMap() *IPSetMap {
-	return &IPSetMap{
-		cache: make(map[string]*IPSet),
-	}
-}
-
-func (m *IPSetMap) exists(name string) bool {
-	_, ok := m.cache[name]
+func (iMgr *IPSetManager) exists(name string) bool {
+	_, ok := iMgr.setMap[name]
 	return ok
 }
 
 func NewIPSetManager(os string) IPSetManager {
 	return IPSetManager{
-		listMap:     newIPSetMap(),
-		setMap:      newIPSetMap(),
-		dirtyCaches: newIPSetMap(),
+		setMap:      make(map[string]*IPSet),
+		dirtyCaches: make(map[string]struct{}),
 	}
 }
 
-func (iMgr *IPSetManager) getSetCache(set *IPSet) (*IPSetMap, error) {
-	kind := getSetKind(set)
-
-	var m *IPSetMap
-	switch kind {
-	case ListSet:
-		m = iMgr.listMap
-	case HashSet:
-		m = iMgr.setMap
-	default:
-		return nil, errors.Errorf(errors.CreateIPSet, false, "unknown Set kind")
+func (iMgr *IPSetManager) updateDirtyCache(setName string) error {
+	set, exists := iMgr.setMap[setName] // check if the Set exists
+	if !exists {
+		return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("ipset %s does not exist", set.Name))
 	}
-	return m, nil
+
+	// If set is not referenced in netpol then ignore the update
+	if len(set.NetPolReference) == 0 && len(set.SelectorReference) == 0 {
+		return nil
+	}
+
+	iMgr.dirtyCaches[set.Name] = struct{}{}
+	if getSetKind(set) == ListSet {
+		// TODO check if we will need to add all the member ipsets
+		// also to the dirty cache list
+		for _, member := range set.MemberIPSets {
+			iMgr.dirtyCaches[member.Name] = struct{}{}
+		}
+	}
+	return nil
+}
+
+func (iMgr *IPSetManager) clearDirtyCache() {
+	iMgr.dirtyCaches = make(map[string]struct{})
 }
 
 func (iMgr *IPSetManager) CreateIPSet(set *IPSet) error {
-	m, err := iMgr.getSetCache(set)
-	if err != nil {
-		return err
-	}
-
-	m.Lock()
-	defer m.Unlock()
+	iMgr.Lock()
+	defer iMgr.Unlock()
 	// Check if the Set already exists
-	if m.exists(set.Name) {
+	if iMgr.exists(set.Name) {
 		// ipset already exists
 		// we should calculate a diff if the members are different
 		return nil
@@ -74,7 +69,7 @@ func (iMgr *IPSetManager) CreateIPSet(set *IPSet) error {
 
 	// append the cache if dataplane specific function
 	// return nil as error
-	m.cache[set.Name] = set
+	iMgr.setMap[set.Name] = set
 
 	return nil
 }
@@ -85,11 +80,11 @@ func (iMgr *IPSetManager) AddToSet(addToSets []*IPSet, ip, podKey string) error 
 	if net.ParseIP(ip).To4() == nil {
 		return errors.Errorf(errors.AppendIPSet, false, "IPV6 not supported")
 	}
+	iMgr.Lock()
+	defer iMgr.Unlock()
 
 	for _, updatedSet := range addToSets {
-		iMgr.setMap.Lock()
-		defer iMgr.setMap.Unlock()
-		set, exists := iMgr.setMap.cache[updatedSet.Name] // check if the Set exists
+		set, exists := iMgr.setMap[updatedSet.Name] // check if the Set exists
 		if !exists {
 			set = NewIPSet(updatedSet.Name, updatedSet.Type)
 			err := iMgr.CreateIPSet(set)
@@ -118,6 +113,7 @@ func (iMgr *IPSetManager) AddToSet(addToSets []*IPSet, ip, podKey string) error 
 
 		// update the IP ownership with podkey
 		set.IpPodKey[ip] = podKey
+		iMgr.updateDirtyCache(set.Name)
 
 		// Update metrics of the IpSet
 		metrics.NumIPSetEntries.Inc()
@@ -128,10 +124,10 @@ func (iMgr *IPSetManager) AddToSet(addToSets []*IPSet, ip, podKey string) error 
 }
 
 func (iMgr *IPSetManager) RemoveFromSet(removeFromSets []string, ip, podKey string) error {
-	iMgr.setMap.Lock()
-	defer iMgr.setMap.Unlock()
+	iMgr.Lock()
+	defer iMgr.Unlock()
 	for _, setName := range removeFromSets {
-		set, exists := iMgr.setMap.cache[setName] // check if the Set exists
+		set, exists := iMgr.setMap[setName] // check if the Set exists
 		if !exists {
 			return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("ipset %s does not exist", setName))
 		}
@@ -155,6 +151,7 @@ func (iMgr *IPSetManager) RemoveFromSet(removeFromSets []string, ip, podKey stri
 
 		// update the IP ownership with podkey
 		delete(set.IpPodKey, ip)
+		iMgr.updateDirtyCache(set.Name)
 
 		// Update metrics of the IpSet
 		metrics.NumIPSetEntries.Dec()
@@ -166,15 +163,15 @@ func (iMgr *IPSetManager) RemoveFromSet(removeFromSets []string, ip, podKey stri
 
 func (iMgr *IPSetManager) AddToList(listName string, setNames []string) error {
 
+	iMgr.Lock()
+	defer iMgr.Unlock()
+
 	for _, setName := range setNames {
 
 		if listName == setName {
 			return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("list %s cannot be added to itself", listName))
 		}
-
-		iMgr.listMap.Lock()
-		defer iMgr.listMap.Unlock()
-		set, exists := iMgr.setMap.cache[setName] // check if the Set exists
+		set, exists := iMgr.setMap[setName] // check if the Set exists
 		if !exists {
 			return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("member ipset %s does not exist", setName))
 		}
@@ -185,7 +182,7 @@ func (iMgr *IPSetManager) AddToList(listName string, setNames []string) error {
 			return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("member ipset %s is not a Set type and nestetd ipsets are not supported", setName))
 		}
 
-		list, exists := iMgr.listMap.cache[listName] // check if the Set exists
+		list, exists := iMgr.setMap[listName] // check if the Set exists
 		if !exists {
 			return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("ipset %s does not exist", listName))
 		}
@@ -219,14 +216,16 @@ func (iMgr *IPSetManager) AddToList(listName string, setNames []string) error {
 		metrics.IncIPSetInventory(setName)
 	}
 
+	iMgr.updateDirtyCache(listName)
+
 	return nil
 }
 
 func (iMgr *IPSetManager) RemoveFromList(listName string, setNames []string) error {
-	iMgr.listMap.Lock()
-	defer iMgr.listMap.Unlock()
+	iMgr.Lock()
+	defer iMgr.Unlock()
 	for _, setName := range setNames {
-		set, exists := iMgr.setMap.cache[setName] // check if the Set exists
+		set, exists := iMgr.setMap[setName] // check if the Set exists
 		if !exists {
 			return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("ipset %s does not exist", setName))
 		}
@@ -241,7 +240,7 @@ func (iMgr *IPSetManager) RemoveFromList(listName string, setNames []string) err
 			return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("member ipset %s is not a Set type and nestetd ipsets are not supported", setName))
 		}
 
-		list, exists := iMgr.listMap.cache[listName] // check if the Set exists
+		list, exists := iMgr.setMap[listName] // check if the Set exists
 		if !exists {
 			return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("ipset %s does not exist", listName))
 		}
@@ -268,27 +267,55 @@ func (iMgr *IPSetManager) RemoveFromList(listName string, setNames []string) err
 		metrics.NumIPSetEntries.Dec()
 		metrics.DecIPSetInventory(setName)
 	}
+	iMgr.updateDirtyCache(listName)
 
 	return nil
 }
 
 func (iMgr *IPSetManager) DeleteList(name string) error {
-	iMgr.listMap.Lock()
-	defer iMgr.listMap.Unlock()
-	delete(iMgr.listMap.cache, name)
+	iMgr.Lock()
+	defer iMgr.Unlock()
+	set, exists := iMgr.setMap[name] // check if the Set exists
+	if !exists {
+		return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("member ipset %s does not exist", set.Name))
+	}
 
+	if !set.CanBeDeleted() {
+		return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("ipset %s cannot be deleted", set.Name))
+	}
+
+	delete(iMgr.setMap, name)
 	return nil
 }
 
 func (iMgr *IPSetManager) DeleteSet(name string) error {
-	iMgr.setMap.Lock()
-	defer iMgr.setMap.Unlock()
-	delete(iMgr.setMap.cache, name)
+	iMgr.Lock()
+	defer iMgr.Unlock()
+	set, exists := iMgr.setMap[name] // check if the Set exists
+	if !exists {
+		return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("member ipset %s does not exist", set.Name))
+	}
 
+	if !set.CanBeDeleted() {
+		return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("ipset %s cannot be deleted", set.Name))
+	}
+	delete(iMgr.setMap, name)
 	return nil
 }
 
 func (iMgr *IPSetManager) ApplyIPSets() error {
+	iMgr.Lock()
+	defer iMgr.Unlock()
 
+	for setName := range iMgr.dirtyCaches {
+		set, exists := iMgr.setMap[setName] // check if the Set exists
+		if !exists {
+			return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("member ipset %s does not exist", setName))
+		}
+
+		fmt.Printf(set.Name)
+
+	}
+	iMgr.clearDirtyCache()
 	return nil
 }

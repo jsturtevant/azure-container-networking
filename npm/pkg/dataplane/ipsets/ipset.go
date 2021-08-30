@@ -14,9 +14,11 @@ type IPSet struct {
 	// and podKey as value
 	IpPodKey map[string]string
 	// This is used for listMaps to store child IP Sets
-	MemberIPSets     map[string]*IPSet
-	NetPolReferCount int
-	IpsetReferCount  int
+	MemberIPSets map[string]*IPSet
+	// Using a map here to emulate set of netpol names
+	SelectorReference map[string]struct{}
+	NetPolReference   map[string]struct{}
+	IpsetReferCount   int
 }
 
 type SetType int32
@@ -74,13 +76,14 @@ const (
 
 func NewIPSet(name string, setType SetType) *IPSet {
 	return &IPSet{
-		Name:             name,
-		HashedName:       util.GetHashedName(name),
-		IpPodKey:         make(map[string]string),
-		Type:             setType,
-		MemberIPSets:     make(map[string]*IPSet, 0),
-		NetPolReferCount: 0,
-		IpsetReferCount:  0,
+		Name:              name,
+		HashedName:        util.GetHashedName(name),
+		IpPodKey:          make(map[string]string),
+		Type:              setType,
+		MemberIPSets:      make(map[string]*IPSet),
+		SelectorReference: make(map[string]struct{}),
+		NetPolReference:   make(map[string]struct{}),
+		IpsetReferCount:   0,
 	}
 }
 
@@ -136,4 +139,39 @@ func (set *IPSet) IncIpsetReferCount() {
 
 func (set *IPSet) DecIpsetReferCount() {
 	set.IpsetReferCount--
+}
+
+func (set *IPSet) AddSelectorReference(netPolName string) {
+	set.SelectorReference[netPolName] = struct{}{}
+}
+
+func (set *IPSet) DeleteSelectorReference(netPolName string) {
+	delete(set.SelectorReference, netPolName)
+}
+
+func (set *IPSet) AddNetPolReference(netPolName string) {
+	set.NetPolReference[netPolName] = struct{}{}
+}
+
+func (set *IPSet) DeleteNetPolReference(netPolName string) {
+	delete(set.NetPolReference, netPolName)
+}
+
+func (set *IPSet) CanBeDeleted() bool {
+	if len(set.SelectorReference) > 0 {
+		return false
+	}
+	if len(set.NetPolReference) > 0 {
+		return false
+	}
+	if set.IpsetReferCount > 0 {
+		return false
+	}
+	if len(set.MemberIPSets) > 0 {
+		return false
+	}
+	if len(set.IpPodKey) > 0 {
+		return false
+	}
+	return true
 }
