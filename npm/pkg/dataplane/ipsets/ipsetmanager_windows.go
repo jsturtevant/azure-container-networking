@@ -1,5 +1,11 @@
 package ipsets
 
+import (
+	"fmt"
+
+	"github.com/Azure/azure-container-networking/npm/util"
+)
+
 // SetPolicyTypes associated with SetPolicy. Value is IPSET.
 type SetPolicyType string
 
@@ -21,8 +27,8 @@ func isValidIPSet(set *IPSet) error {
 		return fmt.Errorf("IPSet " + set.Name + " is missing Name")
 	}
 
-	if set.Type == "" {
-		return fmt.Errorf("IPSet " + set.Type + " is missing Type")
+	if set.Type == Unknown {
+		return fmt.Errorf("IPSet " + set.Type.String() + " is missing Type")
 	}
 
 	if set.HashedName == "" {
@@ -47,13 +53,19 @@ func getSetPolicyType(set *IPSet) SetPolicyType {
 func convertToSetPolicy(set *IPSet) (*SetPolicySetting, error) {
 	err := isValidIPSet(set)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return &SetPolicySetting{
+	setContents, err := set.GetSetContents()
+	if err != nil {
+		return nil, err
+	}
+
+	setPolicy := &SetPolicySetting{
 		Id:     set.HashedName,
 		Name:   set.Name,
 		Type:   getSetPolicyType(set),
-		Values: set.GetSetContents(),
+		Values: util.SliceToString(setContents),
 	}
+	return setPolicy, nil
 }
