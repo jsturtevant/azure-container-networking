@@ -301,19 +301,16 @@ func (iMgr *IPSetManager) DeleteSet(name string) error {
 	return nil
 }
 
-func (iMgr *IPSetManager) ApplyIPSets() error {
+func (iMgr *IPSetManager) ApplyIPSets(networkID string) error {
 	iMgr.Lock()
 	defer iMgr.Unlock()
 
-	for setName := range iMgr.dirtyCaches {
-		set, exists := iMgr.setMap[setName] // check if the Set exists
-		if !exists {
-			return errors.Errorf(errors.AppendIPSet, false, fmt.Sprintf("member ipset %s does not exist", setName))
-		}
-
-		fmt.Printf(set.Name)
-
+	// Call the appropriate apply ipsets
+	err := iMgr.applyIPSets(networkID)
+	if err != nil {
+		return err
 	}
+
 	iMgr.clearDirtyCache()
 	return nil
 }

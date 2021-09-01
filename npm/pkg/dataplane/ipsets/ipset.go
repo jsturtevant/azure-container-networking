@@ -179,3 +179,13 @@ func (set *IPSet) CanBeDeleted() bool {
 	}
 	return true
 }
+
+func (set *IPSet) UsedByNetPol() bool {
+	if len(set.SelectorReference) <= 0 {
+		return false
+	}
+	if len(set.NetPolReference) <= 0 {
+		return false
+	}
+	return true
+}

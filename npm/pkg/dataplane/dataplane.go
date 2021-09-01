@@ -93,7 +93,7 @@ func (dp *DataPlane) UpdatePod(pod *npm.NpmPod) error {
 }
 
 func (dp *DataPlane) ApplyDataPlane() error {
-	return nil
+	return dp.ipsetMgr.ApplyIPSets(dp.networkID)
 }
 
 func (dp *DataPlane) AddPolicies(policies *policies.NPMNetworkPolicy) error {
