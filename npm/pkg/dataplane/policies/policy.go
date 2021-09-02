@@ -6,10 +6,13 @@ import (
 )
 
 type NPMNetworkPolicy struct {
-	Name              string
+	Name string
+	// PodSelectorIPSets holds all the IPSets generated from Pod Selector
 	PodSelectorIPSets []*ipsets.IPSet
-	OtherIPSets       []*ipsets.IPSet
-	ACLs              []*ACLPolicy
+	// OtherIPSets holds all IPSets generated from policy
+	// except for pod selector IPSets
+	OtherIPSets []*ipsets.IPSet
+	ACLs        []*ACLPolicy
 	// Making this a podKey instead should be
 	// use NPMPod obj
 	Pods  []string
@@ -28,6 +31,12 @@ type ACLPolicy struct { // Iptable rules
 	Protocol  string
 }
 
+// SetInfo helps capture additional details in a matchSet
+// exmaple match set in linux:
+//             ! azure-npm-123 src,src
+// "!" this indicates a negative match of an IPset for src,src
+// Included flag captures the negative or positive match
+// MatchType captures match flags
 type SetInfo struct {
 	IPSet     *ipsets.IPSet
 	Included  bool

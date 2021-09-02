@@ -8,14 +8,14 @@ import (
 
 const (
 	// Windows specific constants
-	AZURENETWORKNAME = "azure"
+	AzureNetworkName = "azure"
 )
 
 func (dp *DataPlane) initializeDataPlane() error {
 	fmt.Printf("Initializing dataplane for windows")
 
 	// Get Network ID
-	network, err := hcn.GetNetworkByName(AZURENETWORKNAME)
+	network, err := hcn.GetNetworkByName(AzureNetworkName)
 	if err != nil {
 		return err
 	}
@@ -30,9 +30,9 @@ func (dp *DataPlane) initializeDataPlane() error {
 	for _, endpoint := range endpoints {
 		fmt.Println(endpoint.Policies)
 		ep := &NPMEndpoint{
-			Name:      endpoint.Name,
-			ID:        endpoint.Id,
-			NetpolRef: []string{},
+			Name:            endpoint.Name,
+			ID:              endpoint.Id,
+			NetPolReference: make(map[string]struct{}),
 		}
 
 		dp.endpointCache[ep.Name] = ep

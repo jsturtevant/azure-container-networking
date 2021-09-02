@@ -21,7 +21,7 @@ func (iMgr *IPSetManager) exists(name string) bool {
 	return ok
 }
 
-func NewIPSetManager(os string) IPSetManager {
+func NewIPSetManager() IPSetManager {
 	return IPSetManager{
 		setMap:      make(map[string]*IPSet),
 		dirtyCaches: make(map[string]struct{}),

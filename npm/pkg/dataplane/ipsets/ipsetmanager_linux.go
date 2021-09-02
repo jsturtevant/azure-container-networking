@@ -3,7 +3,6 @@ package ipsets
 import (
 	"fmt"
 
-	"github.com/Azure/azure-container-networking/npm/util"
 	"github.com/Azure/azure-container-networking/npm/util/errors"
 )
 

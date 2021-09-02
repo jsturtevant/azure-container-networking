@@ -162,29 +162,21 @@ func (set *IPSet) DeleteNetPolReference(netPolName string) {
 }
 
 func (set *IPSet) CanBeDeleted() bool {
-	if len(set.SelectorReference) > 0 {
-		return false
-	}
-	if len(set.NetPolReference) > 0 {
-		return false
-	}
-	if set.IpsetReferCount > 0 {
-		return false
-	}
-	if len(set.MemberIPSets) > 0 {
-		return false
-	}
-	if len(set.IPPodKey) > 0 {
+	if len(set.SelectorReference) > 0 ||
+		len(set.NetPolReference) > 0 ||
+		set.IpsetReferCount > 0 ||
+		len(set.MemberIPSets) > 0 ||
+		len(set.IPPodKey) > 0 {
+		// return false if this IPSet has any references and memebrs.
 		return false
 	}
 	return true
 }
 
+// UsedByNetPol check if an IPSet is refered in network policies.
 func (set *IPSet) UsedByNetPol() bool {
-	if len(set.SelectorReference) <= 0 {
-		return false
-	}
-	if len(set.NetPolReference) <= 0 {
+	if len(set.SelectorReference) == 0 &&
+		len(set.NetPolReference) == 0 {
 		return false
 	}
 	return true
