@@ -128,6 +128,8 @@ func getSetKind(set *IPSet) SetKind {
 		return ListSet
 	case NestedLabelOfPod:
 		return ListSet
+	case Unknown: // adding this to appease golint
+		return "unknown"
 	default:
 		return "unknown"
 	}
@@ -173,7 +175,7 @@ func (set *IPSet) CanBeDeleted() bool {
 	return true
 }
 
-// UsedByNetPol check if an IPSet is refered in network policies.
+// UsedByNetPol check if an IPSet is referred in network policies.
 func (set *IPSet) UsedByNetPol() bool {
 	if len(set.SelectorReference) == 0 &&
 		len(set.NetPolReference) == 0 {

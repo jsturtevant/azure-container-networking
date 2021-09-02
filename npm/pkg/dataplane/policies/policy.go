@@ -32,7 +32,7 @@ type ACLPolicy struct { // Iptable rules
 }
 
 // SetInfo helps capture additional details in a matchSet
-// exmaple match set in linux:
+// example match set in linux:
 //             ! azure-npm-123 src,src
 // "!" this indicates a negative match of an IPset for src,src
 // Included flag captures the negative or positive match
@@ -49,6 +49,7 @@ type Ports struct {
 }
 
 type Verdict string
+
 type Direction string
 
 const (

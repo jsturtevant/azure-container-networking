@@ -64,7 +64,7 @@ func (iMgr *IPSetManager) CreateIPSet(set *IPSet) error {
 		return nil
 	}
 
-	// Call the dataplane specifc fucntion here to
+	// Call the dataplane specifc function here to
 	// create the Set
 
 	// append the cache if dataplane specific function
@@ -233,7 +233,7 @@ func (iMgr *IPSetManager) RemoveFromList(listName string, setNames []string) err
 		}
 
 		// Nested IPSets are only supported for windows
-		//Check if we want to actually use that support
+		// Check if we want to actually use that support
 		if getSetKind(set) != HashSet {
 			return errors.Errorf(errors.DeleteIPSet, false, fmt.Sprintf("member ipset %s is not a Set type and nestetd ipsets are not supported", setName))
 		}

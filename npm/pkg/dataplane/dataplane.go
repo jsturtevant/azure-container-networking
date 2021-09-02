@@ -82,9 +82,9 @@ func (dp *DataPlane) RemoveFromList(listName string, setNames []string) error {
 }
 
 // UpdatePod is to be called by pod_controller ONLY when a new pod is CREATED.
-// this function has two responsibilties in windows
+// this function has two responsibilities in windows
 // 1. Will call into dataplane and updates endpoint references of this pod.
-// 2. Will check for exisitng applicable network policies and applies it on endpoint
+// 2. Will check for existing applicable network policies and applies it on endpoint
 // In Linux, this function currently is a no-op
 func (dp *DataPlane) UpdatePod(pod *npm.NpmPod) error {
 	return nil
